@@ -7,7 +7,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.ContentValues.TAG
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
@@ -23,7 +22,6 @@ import androidx.lifecycle.MutableLiveData
 import com.example.locationtracking.R
 import com.example.locationtracking.broadcastReceiver.GeofenceBroadcastReceiver
 import com.example.locationtracking.utils.GeofencingHelper
-import com.example.locationtracking.viewModel.LocationViewModel
 import com.example.locationtracking.workManager.LocationTrackingServiceManager
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Geofence
@@ -165,7 +163,8 @@ class LocationTrackingService : Service() {
     }
 
     private fun createLocationRequest() {
-        locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY, 15000) // 15 seconds
+        locationRequest = LocationRequest.Builder(Priority.PRIORITY_BALANCED_POWER_ACCURACY,
+            15000) // 15 seconds
             .setWaitForAccurateLocation(false)
             .setMinUpdateIntervalMillis(10000) // 10 seconds
             .setMaxUpdateDelayMillis(30000) // 30 seconds
@@ -247,41 +246,65 @@ class LocationTrackingService : Service() {
     private fun setupGeofencing() {
         Log.d(TAG, "setupGeofencing: ")
 
-        val geofence = Geofence.Builder()
-            .setRequestId("my_geofence")
-            .setCircularRegion(
-                21.1952, // latitude
-                79.1104, // longitude
-                500f // radius in meters
-            )
-            .setExpirationDuration(Geofence.NEVER_EXPIRE)
-            .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
-            .build()
-
-        // Create GeofencingRequest
-        val geofencingRequest = GeofencingRequest.Builder()
-            .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
-            .addGeofence(geofence)
-            .build()
-
-        // Create the PendingIntent for the geofence trigger
-        val geofencePendingIntent = PendingIntent.getBroadcast(
-            this,
-            0,
-            Intent(this, GeofenceBroadcastReceiver::class.java),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        // Register the geofence
-        try {
-            geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
-                .addOnSuccessListener {
-                    Log.d("GeofenceSetup", "Geofence added successfully")
-                }.addOnFailureListener { e ->
-                    Log.e("GeofenceSetup", "Failed to add geofence", e)
-                }
-        } catch (e: SecurityException) {
-
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // TODO: Consider calling
+            //    ActivityCompat#requestPermissions
+            // here to request the missing permissions, and then overriding
+            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+            //                                          int[] grantResults)
+            // to handle the case where the user grants the permission. See the documentation
+            // for ActivityCompat#requestPermissions for more details.
+            return
         }
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            location?.let {
+                Log.d(TAG, "setupGeofencing: ${location.latitude}, ${location.longitude}")
+                val geofence = Geofence.Builder()
+                    .setRequestId("my_geofence")
+                    .setCircularRegion(
+                        location.latitude, // latitude
+                        location.longitude, // longitude
+                        500f // radius in meters
+                    )
+                    .setExpirationDuration(Geofence.NEVER_EXPIRE)
+                    .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT)
+                    .build()
+
+                // Create GeofencingRequest
+                val geofencingRequest = GeofencingRequest.Builder()
+                    .setInitialTrigger(GeofencingRequest.INITIAL_TRIGGER_ENTER)
+                    .addGeofence(geofence)
+                    .build()
+
+                // Create the PendingIntent for the geofence trigger
+                val geofencePendingIntent = PendingIntent.getBroadcast(
+                    this,
+                    0,
+                    Intent(this, GeofenceBroadcastReceiver::class.java),
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+                )
+
+                // Register the geofence
+                try {
+                    geofencingClient.addGeofences(geofencingRequest, geofencePendingIntent)
+                        .addOnSuccessListener {
+                            Log.d("GeofenceSetup", "Geofence added successfully")
+                            geofencingHelper.createGeofence("my_geofence", location, 500f)
+                        }.addOnFailureListener { e ->
+                            Log.e("GeofenceSetup", "Failed to add geofence", e)
+                        }
+                } catch (e: SecurityException) {
+
+                }
+            }
+        }
+
     }
 }

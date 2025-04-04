@@ -3,13 +3,13 @@ package com.example.locationtracking.utils
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.location.Location
 import android.util.Log
 import com.example.locationtracking.broadcastReceiver.GeofenceBroadcastReceiver
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
 import com.google.android.gms.location.LocationServices
-import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.tasks.OnFailureListener
 import com.google.android.gms.tasks.OnSuccessListener
 
@@ -90,7 +90,7 @@ class GeofencingHelper(private val context: Context) {
      */
     fun createGeofence(
         key: String,
-        latLng: LatLng,
+        latLng: Location,
         radius: Float,
         transitionTypes: Int = Geofence.GEOFENCE_TRANSITION_ENTER or Geofence.GEOFENCE_TRANSITION_EXIT
     ): Geofence {
